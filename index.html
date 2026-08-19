@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Confessions</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    color: #222;
+  }
+  .container {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+  }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .tabs button {
+    padding: 8px 16px;
+    border: 1px solid #999;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .tabs button.active {
+    background: #333;
+    color: #fff;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  input, textarea {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  button[type="submit"], .btn {
+    padding: 8px;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button[type="submit"]:hover, .btn:hover {
+    background: #555;
+  }
+  .message {
+    text-align: center;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  .message.error {
+    background: #ffe0e0;
+    color: #a00;
+  }
+  .message.success {
+    background: #e0ffe0;
+    color: #070;
+  }
+  .confession-text {
+    margin: 4px 0 0;
+    white-space: pre-wrap;
+  }
+  .hint {
+    font-size: 12px;
+    color: #666;
+    margin-top: -8px;
+  }
+  .tag {
+    font-size: 11px;
+    background: #333;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// Change this if your backend runs elsewhere
+const API_BASE = "https://confessions-app-ruddy.vercel.app/";
+
+function Message({ text, type }) {
+  if (!text) return null;
+  return <div className={`message ${type}`}>{text}</div>;
+}
+
+function RegisterForm({ onSuccess }) {
+  const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("");
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/user/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+      // backend replies with plain text, not JSON
+      const text = await res.text();
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(text || "Registration failed");
+        return;
+      }
+      setMsgType("success");
+      setMsg("Registered successfully! You can log in now.");
+      setForm({ username: "", email: "", password: "" });
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      setMsgType("error");
+      setMsg("Could not reach server");
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Register</h2>
+      <p className="hint">Username and password must both be at least 8 characters.</p>
+      <Message text={msg} type={msgType} />
+      <form onSubmit={handleSubmit}>
+        <input
+          name="username"
+          placeholder="Username (min 8 chars)"
+          value={form.username}
+          onChange={handleChange}
+          minLength={8}
+          required
+        />
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
+          required
+        />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password (min 8 chars)"
+          value={form.password}
+          onChange={handleChange}
+          minLength={8}
+          required
+        />
+        <button type="submit">Register</button>
+      </form>
+    </div>
+  );
+}
+
+function LoginForm({ onLogin }) {
+  // username is required by the backend's validator (min 8 chars),
+  // even though only email+password are actually checked for auth
+  const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("");
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/user/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+      // backend replies with plain text, not JSON
+      const text = await res.text();
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(text || "Login failed");
+        return;
+      }
+      setMsgType("success");
+      setMsg("Logged in successfully!");
+      onLogin();
+    } catch (err) {
+      setMsgType("error");
+      setMsg("Could not reach server");
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Login</h2>
+      <Message text={msg} type={msgType} />
+      <form onSubmit={handleSubmit}>
+        <input
+          name="username"
+          placeholder="Username (min 8 chars)"
+          value={form.username}
+          onChange={handleChange}
+          minLength={8}
+          required
+        />
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
+          required
+        />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
+          required
+        />
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  );
+}
+
+function AddConfession({ onAdded }) {
+  const [title, setTitle] = useState("");
+  const [confessionbod, setConfessionbod] = useState("");
+  const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/confessions/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title, confessionbod }),
+      });
+      // backend replies with plain text, not JSON
+      const text = await res.text();
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(text || "Could not post confession");
+        return;
+      }
+      setMsgType("success");
+      setMsg("Confession posted!");
+      setTitle("");
+      setConfessionbod("");
+      if (onAdded) onAdded();
+    } catch (err) {
+      setMsgType("error");
+      setMsg("Could not reach server");
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>New Confession</h2>
+      <Message text={msg} type={msgType} />
+      <form onSubmit={handleSubmit}>
+        <input
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
+        <textarea
+          rows="3"
+          placeholder="Type your confession..."
+          value={confessionbod}
+          onChange={(e) => setConfessionbod(e.target.value)}
+          required
+        />
+        <button type="submit">Post</button>
+      </form>
+    </div>
+  );
+}
+
+function ConfessionsList({ refreshKey }) {
+  const [confessions, setConfessions] = useState([]);
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    setMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/confessions/show`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        // error responses from this backend are plain text
+        const text = await res.text().catch(() => "");
+        setMsg(text || "Could not load confessions");
+        return;
+      }
+      // success response is a JSON array: [{ _id, title, body, isUser }, ...]
+      const data = await res.json();
+      setConfessions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setMsg("Could not reach server");
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [refreshKey]);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Confessions</h2>
+        <button className="btn" onClick={load}>Refresh</button>
+      </div>
+      <Message text={msg} type="error" />
+      {confessions.length === 0 && !msg && <p>No confessions yet.</p>}
+      {confessions.map((c, i) => (
+        <div className="card" key={c._id || i}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <strong>{c.title}</strong>
+            {c.isUser && <span className="tag">yours</span>}
+          </div>
+          <p className="confession-text">{c.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState("login");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  return (
+    <div className="container">
+      <h1>Confessions</h1>
+      <div className="tabs">
+        <button
+          className={tab === "login" ? "active" : ""}
+          onClick={() => setTab("login")}
+        >
+          Login
+        </button>
+        <button
+          className={tab === "register" ? "active" : ""}
+          onClick={() => setTab("register")}
+        >
+          Register
+        </button>
+        <button
+          className={tab === "confess" ? "active" : ""}
+          onClick={() => setTab("confess")}
+        >
+          Confessions
+        </button>
+      </div>
+
+      {tab === "login" && (
+        <LoginForm onLogin={() => setTab("confess")} />
+      )}
+      {tab === "register" && (
+        <RegisterForm onSuccess={() => setTab("login")} />
+      )}
+      {tab === "confess" && (
+        <div>
+          <AddConfession onAdded={() => setRefreshKey((k) => k + 1)} />
+          <ConfessionsList refreshKey={refreshKey} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
